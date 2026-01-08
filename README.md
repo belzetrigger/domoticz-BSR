@@ -90,10 +90,15 @@ Based on https://github.com/ffes/domoticz-buienradar/ there are
 - `/blz/fakeDomoticz.py` - used to run it outside of Domoticz
 - `/blz/blzHelperInterface.py` starting point for some more structure
 - unittest under folder `/test`  - it's the new entry point for tests
-  - copy `sample_config.ini`  to `my_config.ini` and adapt to your liking  
+  - copy `sample_config.ini`  to `my_config.ini` and adapt to your liking
+  - next to create a virtual environemnt in vs code and select requirements.txt 
+  - select thie venv as default python interpreter 
+    - details see: https://code.visualstudio.com/docs/python/python-tutorial#:~:text=Open%20the%20Command%20Palette%20(Ctrl,be%20used%20for%20your%20project.
 ## ChangeLog
 | Version | Note                                                                                     |
 | ------- | ---------------------------------------------------------------------------------------- |
+| 3.0.2   | fix for xmas tree |
+| 3.0.1   | small fix to get just dates from today starting |
 | 3.0.0   | changed to new API from BSR |
 | 2.0.0   | rebuild project structure |
 | 1.1.7   | bugfix, forgot to clear data storage before reading them from web service |

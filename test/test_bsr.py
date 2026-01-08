@@ -95,7 +95,7 @@ class Test_bsr(unittest.TestCase):
         showHouseholdWaste: bool = True,
         showRecycleWaste: bool = True,
         showBioWaste: bool = True,
-        showXmasWaste: bool = False,
+        showXmasWaste: bool = True,
         debugResponse: bool = False,
     ):
         """creates a bsr object based on config
@@ -119,6 +119,11 @@ class Test_bsr(unittest.TestCase):
             zipCode=zip,
             houseNumber=nr,
         )
+
+        aBsr.showBioWaste = showBioWaste
+        aBsr.showHouseholdWaste = showHouseholdWaste
+        aBsr.showRecycleWaste = showRecycleWaste
+        aBsr.showXmasWaste = showXmasWaste
         return aBsr
 
     def doWork(self, aBsr: Bsr):

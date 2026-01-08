@@ -20,10 +20,12 @@ Version:    1.0.0: Initial Version
             1.1.7: bugfix, forgot to clear data storage before reading them from webservice
             2.0.0: rebuild project structure and parameters
             3.0.0: changed to new webpage form BSR
+            3.0.1: small fix to just get dates from today
+            3.0.2: fix for xmas tree collection 
 
 <plugin key="BsrWasteCollection"
 name="BSR - Berlin Waste Collection" author="belze"
-version="3.0.0" wikilink="" externallink="https://github.com/belzetrigger/domoticz-BSR" >
+version="3.0.2" wikilink="" externallink="https://github.com/belzetrigger/domoticz-BSR" >
     <description>
         <h2>BSR - Berlin Waste Collection Plugin</h2><br/>
         <h3>Features</h3>

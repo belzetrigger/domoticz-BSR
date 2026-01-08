@@ -158,10 +158,10 @@ class WasteData:
 class Bsr(BlzHelperInterface):
 
     # now it is catergory
-    BIO_CAT = "BI"
-    RECYCLE_CAT = "WS"
-    HOUSEHOLD_CAT = "HM"
-    XMASTREE_CAT = "LT"
+    BIO_CAT = "BI" # BIO
+    RECYCLE_CAT = "WS" # Wertstoffe
+    HOUSEHOLD_CAT = "HM" # Hausmüll
+    XMASTREE_CAT = "WB" # Weihnachtsbaum
 
     category_names = {
     BIO_CAT: "Biogut",
@@ -246,10 +246,6 @@ class Bsr(BlzHelperInterface):
         self.nearest = None
         self.location = None
         self.initWasteData()
-        self.nextCollectionDate = None
-        self.nextCollectionName = None
-        self.nextCollectionHint = None
-        self.observationDate = None
         self.needUpdate = True
         self.resetError()
 
@@ -282,17 +278,12 @@ class Bsr(BlzHelperInterface):
             "Recycle:\t{}\n\r"
             "Bio:\t{}\n\r"
             "Weihnachtsbaum:\t{}\n\r"
-            "nextCollection:\t{}-{} {}\n\r"
             "need update?:\t{}".format(
                 self.location,
                 self.restData.getShortStatus(),
                 self.recycleData.getShortStatus(),
                 self.bioData.getShortStatus(),
                 self.xmasData.getShortStatus(),
-                self.nextCollectionDate,
-                self.nextCollectionName,
-                self.nextCollectionHint,
-                #  self.observationDate,
                 self.needUpdate,
             )
         )
@@ -463,10 +454,7 @@ class Bsr(BlzHelperInterface):
 
     def requestWasteData(self, xMas: bool = False):
         Domoticz.Debug("Retrieve waste collection data from " + self.bsrUrl)
-
-        r = requests.get(self.bsrUrl)
-        
-
+        #  r = requests.get(self.bsrUrl)   
         s = requests.Session()
         s.get(self.bsrUrl)
 
@@ -552,7 +540,7 @@ class Bsr(BlzHelperInterface):
         
         # Get today's date and date 4 weeks ahead
         today = datetime.today()
-        start_of_week = today - timedelta(days=today.weekday())  # Monday = 0
+        start_of_week = today # - timedelta(days=today.weekday())  # Monday = 0
         four_weeks_later = today + timedelta(weeks=4)
 
         # Format dates in the required format: yyyy-MM-ddTHH:mm:ss
@@ -560,14 +548,15 @@ class Bsr(BlzHelperInterface):
 
         date_to_str = four_weeks_later.strftime("%Y-%m-%dT00:00:00")
 
-        # categroies: HM = Hausmüll, BI=Bio, WS=Wertstoffe LT=? maybe xmas?
+        # categroies: HM = Hausmüll, BI=Bio, WS=Wertstoffe WB=
         # Build the URL
+        # TODO just use  based on config the needed cat, quicker parsing
         url = (
             f"https://umnewforms.bsr.de/p/de.bsr.adressen.app/abfuhrEvents?"
             f"filter=AddrKey%20eq%20%27{relevantNumber}%27%20"
             f"and%20DateFrom%20eq%20datetime%27{date_from_str}%27%20"
             f"and%20DateTo%20eq%20datetime%27{date_to_str}%27%20"
-            f"and%20(Category%20eq%20%27HM%27%20or%20Category%20eq%20%27BI%27%20or%20Category%20eq%20%27WS%27%20or%20Category%20eq%20%27LT%27)"
+            f"and%20(Category%20eq%20%27HM%27%20or%20Category%20eq%20%27BI%27%20or%20Category%20eq%20%27WS%27%20or%20Category%20eq%20%27WB%27)"
         )
 
         headers = {
@@ -610,75 +599,66 @@ class Bsr(BlzHelperInterface):
             if self.debugResponse is True:
                 Domoticz.Debug("data: {}".format(r.content))
 
-
             # Collect invalid entries (if any)
             invalid_entries = []
 
             # Define the valid categories
-            valid_categories = {"HM", "BI", "WS", "LT"}
+            # FIXME just use defined top or config
+            valid_categories = {"HM", "BI", "WS", "WB"}
 
-            # Loop through all date entries
-            for date_str, entries in r.json()["dates"].items():
-                for entry in entries:
-                    category = entry.get("category")
-                    if category not in valid_categories:
-                        invalid_entries.append({
-                            "reason": "unknwon category",
-                            "date": date_str,
-                            "category": category,
-                            "entry": entry
-                        })
-                        continue
-                    
-                    # check date
-                    service_date_str = entry.get("serviceDate_actual")
-                    if service_date_str == None:
-                        invalid_entries.append({
-                            "reason": "date is empty",
-                            "date": date_str,
-                            "category": category,
-                            "entry": entry
+            # new test
+            # 1. Get today's date (2026-01-08)
+            today = datetime.now().date()
 
-                        })
-                        continue
-                    service_date = datetime.strptime(service_date_str, "%d.%m.%Y").date()
-                    if service_date <= now:
-                        invalid_entries.append({
-                            "reason": "serviceDate_actual not in future",
-                            "date": date_str,
-                            "category": category,
-                            "entry": entry
-                        })
-                        continue
+            # 2. Flatten and filter for future dates only
+            future_dates = []
+            for date_str, details in r.json()["dates"].items():
+                current_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                
+                if current_date >= today:
+                    # Add the date object to the dict for easy sorting
+                    entry = details[0].copy()
+                    entry['date_obj'] = current_date
+                    future_dates.append(entry)
 
-                    # take  care about it:
-                    if self.showHouseholdWaste is True:
-                        scanAndParse(entry, self.restData)
-                        self.checkForNearest(self.restData)
-                    if self.showRecycleWaste is True:
-                        scanAndParse(entry, self.recycleData)
-                        self.checkForNearest(self.recycleData)
+            # 3. Sort by date (ascending)
+            future_dates.sort(key=lambda x: x['date_obj'])
 
-                    if self.showBioWaste is True:
-                        scanAndParse(entry, self.bioData)
-                        self.checkForNearest(self.bioData)
+            # 4. Pick the first occurrence of each category
+            nearest_per_category = {}
+            for item in future_dates:
+                cat = item['category']
+                if cat not in nearest_per_category:
+                    nearest_per_category[cat] = item
 
-                    # if we have all data, leave loop
-                    if (
-                        self.restData.isComplete() is True
-                        and self.recycleData.isComplete() is True
-                        and self.bioData.isComplete() is True
-                    ):
-                        break
-            Domoticz.Log(
-                "BSR: #4.4\t gelber Sack {}\tHausmuell {} ".format(
-                    self.recycleData.getDate(), self.restData.getDate()
-                )
-            )
-                        
+            # Result output
+            for cat, details in nearest_per_category.items():
+                print(f"Category: {cat} | Next Date: {details['serviceDate_actual']}")
+            
+            # take  care about it:
+            if self.showHouseholdWaste is True:
+                scanAndParse(nearest_per_category[self.HOUSEHOLD_CAT], self.restData)
+                self.checkForNearest(self.restData)
+            if self.showRecycleWaste is True:
+                scanAndParse(nearest_per_category[self.RECYCLE_CAT], self.recycleData)
+                self.checkForNearest(self.recycleData)
+
+            if self.showBioWaste is True:
+                scanAndParse(nearest_per_category[self.BIO_CAT], self.bioData)
+                self.checkForNearest(self.bioData)
+
+            if self.showXmasWaste and self.timeToShowXms() is True:
+                Domoticz.Debug("BSR: #4.4 Read Xmas Data")
+                d = nearest_per_category.get(self.XMASTREE_CAT)
+                if d is None:
+                    Domoticz.Log("BSR: did not found xms - skip it")
+                else:    
+                    scanAndParse(d, self.xmasData)
+                    self.checkForNearest(self.xmasData)
+                                                
             # Output results
             if invalid_entries:
-                Domoticz.Error("Invalid category entries found:")
+                Domoticz.Error("Invalid entries found:")
                 for item in invalid_entries:
                     Domoticz.Error(f"Date: {item['date']}, Category: {item['category']},  Reason: {item['reason']}")
             else:
@@ -698,6 +678,7 @@ class Bsr(BlzHelperInterface):
                 # do not reset, we just got fresh data ... self.reset()
             
             # TODO
+           
             # if self.showXmasWaste and self.timeToShowXms() is True:
             #     Domoticz.Debug("BSR: #5.1 Read Xmas Data")
             #     rXmas = self.requestWasteData(xMas=True)
@@ -761,12 +742,6 @@ def calculateAlarmLevel(wasteDate):
 
 
 def scanAndParse(entry, wasteData: WasteData):
-    image = None
-    now = datetime.now().date()
-    try:
-        image = tag.find("img")
-    except Exception as e:
-        pass
     if (
         wasteData.isEmpty()
         and entry['category'] == wasteData.category 
@@ -779,9 +754,7 @@ def scanAndParse(entry, wasteData: WasteData):
                 wasteData.wasteDate = service_date
                 wasteData.wasteType = entry['category']
                 wasteData.wasteHint = entry['warningText']
-                if image is not None:
-                    wasteData.wasteImage = image["src"]
-                    Domoticz.Debug("img: {}".format(image))
+               
             else:
                 Domoticz.Debug("Skip entry,no date... {}".format(entry['serviceDate_actual']))
             
